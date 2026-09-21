@@ -191,9 +191,31 @@ export class WarpTunnel {
   }
 
   /** Global fade, used to blend the tunnel in behind the boot animation. */
+  /**
+   * Drops a fraction of the rings for a quality tier.
+   *
+   * Rings are additive-blended transparent geometry, which is the most
+   * expensive thing in the warp effect on a mobile GPU — every one of them
+   * shades every pixel it covers. Fewer rings simply reads as a longer gap
+   * between them at speed.
+   *
+   * @param {number} fraction 0..1 of the rings to keep
+   */
+  setDetail(fraction) {
+    this._detail = Math.max(0.05, Math.min(1, fraction));
+    const step = 1 / this._detail;
+    this.rings.forEach((ring, i) => {
+      ring.userData.culled = Math.floor(i % step) !== 0;
+    });
+  }
+
   setOpacity(value) {
     this.opacity = clamp(value, 0, 1);
     this.group.visible = this.opacity > 0.001;
+    // Culled rings stay hidden regardless of the fade.
+    for (const ring of this.rings) {
+      if (ring.userData.culled) ring.visible = false;
+    }
   }
 
   /** Puts every ring back to its resting layout (used when replaying boot). */

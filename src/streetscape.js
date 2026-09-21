@@ -69,6 +69,25 @@ export class Streetscape {
     this.opacity = 0;
   }
 
+  /**
+   * Thins the verge for a quality tier.
+   *
+   * The props are laid out once at construction, so rather than rebuilding
+   * the pool this hides a deterministic fraction of it. Every nth object goes
+   * rather than the tail end, which keeps the thinning even down the road
+   * instead of emptying the far distance and leaving a visible edge.
+   *
+   * @param {number} fraction 0..1 of the scenery to keep
+   */
+  setDetail(fraction) {
+    this._detail = Math.max(0.05, Math.min(1, fraction));
+    const step = 1 / this._detail;
+    this.props.forEach((prop, i) => {
+      prop.userData.culled = Math.floor(i % step) !== 0;
+      prop.visible = !prop.userData.culled && this.opacity > 0.002;
+    });
+  }
+
   /** Lays out the prop pool down both verges. */
   _populate() {
     for (let side = -1; side <= 1; side += 2) {
@@ -141,6 +160,10 @@ export class Streetscape {
     this.material.uniforms.uOpacity.value = this.opacity * STREET.opacity;
     this.dashMaterial.uniforms.uOpacity.value = this.opacity * STREET.dash.opacity;
     this.group.visible = this.opacity > 0.002;
+    // Culled props stay hidden regardless of the fade.
+    for (const prop of this.props) {
+      if (prop.userData.culled) prop.visible = false;
+    }
   }
 
   /** Returns every prop to the slot it was laid out in. */

@@ -771,3 +771,41 @@ body {
   font-size: calc(3.2 * var(--u));
   backdrop-filter: blur(6px);
 }
+
+/* Quality picker in the settings menu. */
+.settings__quality {
+  padding: calc(1.2 * var(--u)) calc(2 * var(--u));
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.settings__quality-label {
+  display: block;
+  margin-bottom: calc(1 * var(--u));
+  font-size: calc(2.9 * var(--u));
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.settings__quality-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(0.6 * var(--u));
+}
+
+.settings__chip {
+  padding: calc(0.8 * var(--u)) calc(1.4 * var(--u));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: calc(0.7 * var(--u));
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  font-size: calc(2.7 * var(--u));
+  cursor: pointer;
+}
+
+.settings__chip:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
+
+.settings__chip.is-active {
+  border-color: rgba(127, 196, 255, 0.6);
+  background: rgba(127, 196, 255, 0.16);
+  color: #dbeeff;
+}

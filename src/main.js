@@ -28,7 +28,7 @@
  */
 
 import * as THREE from 'three';
-import { CAMERA, RENDER, BOOT, TRANSITION, DRIVE, WARP, IDLE, ROAD, ROUTE, FURNITURE, CREW } from './config.js';
+import { ASSET, CAMERA, RENDER, BOOT, TRANSITION, DRIVE, WARP, IDLE, ROAD, ROUTE, FURNITURE, CREW } from './config.js';
 import { createStudioEnvironment, createLightRig, createFloor } from './environment.js';
 import { loadCar } from './car.js';
 import { BootSequence } from './boot.js';
@@ -50,6 +50,7 @@ import { fetchRoute, fetchFurniture } from './osm.js';
 import { SpeedModel } from './speed.js';
 import { Hud } from './hud.js';
 import { SpotifyNowPlaying } from './spotify.js';
+import { QualityManager, TIERS, probeTier } from './quality.js';
 import { clamp } from './spring.js';
 
 /** Frame-time ceiling: a backgrounded tab must not teleport the car. */
@@ -67,9 +68,14 @@ const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2
 
 export function createShowcase({ container, canvas, onProgress, onReady }) {
   // ── Renderer ──────────────────────────────────────────────────────────────
+  // Multisampling is decided when the context is created and cannot be
+  // changed afterwards, so the quality tier has to be guessed first. On a
+  // mobile GPU MSAA is one of the more expensive things here.
+  const startTier = probeTier();
+
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: TIERS[startTier].antialias,
     alpha: false,
     powerPreference: 'high-performance',
   });
@@ -93,6 +99,26 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
   const lights = createLightRig(scene);
   const floor = createFloor(scene, studio.envMap);
 
+  /**
+   * Render cost, measured and adapted. Everything a tier owns that lives
+   * outside the renderer is applied from here.
+   */
+  // Set once the scene layers exist. A plain `street?.setDetail(...)` is not
+  // enough: those are `let` bindings declared further down, so touching them
+  // from here throws on the temporal dead zone rather than short-circuiting.
+  let sceneReady = false;
+
+  const quality = new QualityManager(renderer, (tier) => {
+    lights.setQuality(tier);
+    if (sceneReady) {
+      street.setDetail(tier.detail);
+      tunnel.setDetail(tier.detail);
+      streaks.setDetail(tier.detail);
+      hud.setQuality(tier.name, quality.auto);
+    }
+  }, startTier);
+  quality.apply();
+
   // ── Telemetry + overlay ──────────────────────────────────────────────────
   const speed = new SpeedModel();
   speed.startGeolocation();
@@ -113,6 +139,15 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     onHideCrew: (hidden) => {
       hideCrew = hidden;
       refreshCast();
+    },
+    onQuality: (name) => {
+      if (name === 'auto') {
+        quality.setAuto();
+        quality.apply();
+      } else {
+        quality.set(name);
+      }
+      resize();
     },
     onCrew: (action) => {
       if (action === 'reload') refreshCast();
@@ -270,9 +305,9 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
 
     publishUnits(width, height);
 
-    // Cap the device pixel ratio: beyond 2x the extra fragments buy nothing
-    // visible on this kind of banner but cost a lot on dense mobile panels.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio));
+    // The pixel ratio belongs to the quality tier, not to this function:
+    // fragments are the dominant cost on the hardware this has to run on, so
+    // it is the first thing adaptation turns down.
     renderer.setSize(width, height, false);
 
     camera.aspect = width / height;
@@ -740,8 +775,24 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
   }
 
   // ── Loop ─────────────────────────────────────────────────────────────────
+  let frameStart = 0;
+
   function frame() {
     rafId = requestAnimationFrame(frame);
+
+    // Cost of the *previous* frame, measured from the top of one callback to
+    // the top of the next. That includes the browser's own compositing and
+    // any time the GPU made us wait, which is what actually determines
+    // whether the thing feels smooth — a timer around render() alone would
+    // report a comfortable number on a device managing five frames a second.
+    const now = performance.now();
+    if (frameStart) {
+      const elapsed = now - frameStart;
+      // Ignore the first frames and any tab-switch gap.
+      if (elapsed < 1000 && quality.sample(elapsed)) resize();
+    }
+    frameStart = now;
+
     const dt = Math.min(clock.getDelta(), MAX_DELTA);
 
     // Speed and launch tiering run in every phase, so a pull started during
@@ -760,7 +811,12 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────
-  const ready = loadCar(studio.envMap, onProgress)
+  // Weak hardware gets the simplified car. Decided once, here, because the
+  // model cannot be swapped later without reloading it mid-scene — so this
+  // rides on the starting guess rather than on the adaptation that follows.
+  const carUrl = quality.tier.detail <= 0.5 ? ASSET.lowUrl : ASSET.url;
+
+  const ready = loadCar(studio.envMap, onProgress, carUrl)
     .then(async (loaded) => {
       if (disposed) {
         loaded.dispose();
@@ -779,6 +835,11 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
       streaks = new SpeedStreaks(drive.rig, road);
       idle = new IdleShowcase(drive.rig, camera);
       idleScene = new IdleScene(drive.rig);
+
+      // The tier was settled before any of these existed, so push it through
+      // again now that there is something to receive it.
+      sceneReady = true;
+      quality.apply();
 
       // The boot sequence needs the rig in place, because the showroom it uses
       // as a backdrop is parented to it.
@@ -878,6 +939,11 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     },
     /** The DOM overlay, for inspection. */
     hud,
+    /**
+     * Render quality. `quality.set('minimal')` pins a tier, `setAuto()` hands
+     * it back to the frame-time measurement.
+     */
+    quality,
     /**
      * Traffic signals and speed cameras. Supply your own with
      * `furniture.setItems([{type:'signal'|'camera', distance, lateral}, …])`

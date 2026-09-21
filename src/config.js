@@ -6,6 +6,18 @@
 
 export const ASSET = {
   url: './bmw.glb',
+  /**
+   * A lighter car for weak hardware: the same model simplified to roughly
+   * half the triangles, with textures capped at 1024. Chosen at load time
+   * from the quality tier, because swapping the model later would mean
+   * reloading it mid-scene.
+   *
+   * It keeps the original material and node *names* — the paint grade is
+   * matched on "paint"/"smallspecmap_primary" and the suspension drives the
+   * wheels by bone name, so a pipeline that merges meshes produces a white
+   * car with wheels that do not turn.
+   */
+  lowUrl: './bmw.low.glb',
   /** The model is uniformly rescaled so its longest axis equals this (metres). */
   targetLength: 4.71,
   /**

@@ -125,6 +125,27 @@ export function createLightRig(scene) {
   return {
     key,
     /**
+     * Retunes the rig for a quality tier.
+     *
+     * The rim lights are the first thing to go on a weak GPU: they are pure
+     * fragment cost on every PBR surface in the scene and the environment map
+     * already carries most of what they contribute. Their intensity is folded
+     * into the ambient so the car does not simply go dark when they leave.
+     */
+    setQuality(tier) {
+      key.castShadow = tier.shadows;
+      if (key.shadow.mapSize.width !== tier.shadowMapSize) {
+        key.shadow.mapSize.set(tier.shadowMapSize, tier.shadowMapSize);
+        // The map is allocated lazily; disposing forces it to be rebuilt at
+        // the new size instead of being reused at the old one.
+        key.shadow.map?.dispose();
+        key.shadow.map = null;
+      }
+      rimLeft.visible = tier.rimLights;
+      rimRight.visible = tier.rimLights;
+      ambient.intensity = tier.rimLights ? 0.35 : 0.72;
+    },
+    /**
      * @param {THREE.Vector3} position where the car currently is
      * @param {number} [heading] yaw to rotate the key's offset into, so the
      *   chase view keeps the same relative rim lighting the hero frame had.

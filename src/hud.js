@@ -112,6 +112,23 @@ export class Hud {
     );
     menu.append(this.settingsHideWelcome.row);
 
+    // Quality. Adaptation handles this on its own, but a head unit that only
+    // just manages "low" should be able to be pinned to "minimal" rather than
+    // spending the first few seconds of every load working it out again.
+    this.qualityRow = el('div', 'settings__quality');
+    this.qualityLabel = el('span', 'settings__quality-label', 'Quality: auto');
+    this.qualityRow.append(this.qualityLabel);
+    const choices = el('div', 'settings__quality-choices');
+    this.qualityButtons = new Map();
+    for (const name of ['auto', 'high', 'medium', 'low', 'minimal']) {
+      const b = el('button', 'settings__chip', name, { type: 'button' });
+      this._on(b, 'click', () => this.handlers.onQuality?.(name));
+      this.qualityButtons.set(name, b);
+      choices.append(b);
+    }
+    this.qualityRow.append(choices);
+    menu.append(this.qualityRow);
+
     const sim = el('button', 'settings__item', 'Simulation', { type: 'button' });
     this._on(sim, 'click', () => {
       wrap.classList.remove('is-open');
@@ -133,6 +150,19 @@ export class Hud {
     this._on(input, 'change', () => onChange(input.checked));
     row.append(input, el('span', null, label));
     return { row, input };
+  }
+
+  /**
+   * Shows which tier is in force, and whether it was chosen or measured.
+   * @param {string} name tier name
+   * @param {boolean} auto true when adaptation is still in charge
+   */
+  setQuality(name, auto) {
+    if (!this.qualityLabel) return;
+    this.qualityLabel.textContent = auto ? `Quality: ${name} (auto)` : `Quality: ${name}`;
+    for (const [key, button] of this.qualityButtons) {
+      button.classList.toggle('is-active', auto ? key === 'auto' : key === name);
+    }
   }
 
   /** Reflects the hide-crew state on both tick boxes at once. */

@@ -257,6 +257,27 @@ export class SpeedStreaks {
     parent.add(this.mesh);
 
     this.travel = 0;
+    /** Index count for the full pool, so setDetail can scale from it. */
+    this._fullIndexCount = this.geometry.index ? this.geometry.index.count : 0;
+  }
+
+  /**
+   * Draws only a leading fraction of the streak pool.
+   *
+   * The streaks are one mesh, so there is nothing to hide individually —
+   * instead the draw range is shortened, which costs the GPU nothing for the
+   * streaks that are left out. They are additive and full-screen at speed,
+   * so this is a real saving on a weak fill rate.
+   *
+   * @param {number} fraction 0..1 of the pool to draw
+   */
+  setDetail(fraction) {
+    if (!this._fullIndexCount) return;
+    const keep = Math.max(0.05, Math.min(1, fraction));
+    // Six indices per quad: round to a whole number of them or the last
+    // streak is drawn as a torn triangle.
+    const quads = Math.max(1, Math.floor((this._fullIndexCount / 6) * keep));
+    this.geometry.setDrawRange(0, quads * 6);
   }
 
   reset() {

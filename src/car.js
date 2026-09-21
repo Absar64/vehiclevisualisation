@@ -187,8 +187,10 @@ class Wheel {
  *
  * @param {THREE.Texture} envMap
  * @param {(progress:number)=>void} onProgress 0…1
+ * @param {string} [url] which model to load; the quality tier picks between
+ *   the full car and the simplified one.
  */
-export async function loadCar(envMap, onProgress) {
+export async function loadCar(envMap, onProgress, url = ASSET.url) {
   const loader = new GLTFLoader();
 
   // The model is meshopt-compressed: 46 MB of raw glTF down to 5.8 MB, which
@@ -198,7 +200,7 @@ export async function loadCar(envMap, onProgress) {
   // the smaller download are the same ones that cannot afford a slow decode.
   loader.setMeshoptDecoder(MeshoptDecoder);
 
-  const gltf = await loader.loadAsync(ASSET.url, (event) => {
+  const gltf = await loader.loadAsync(url, (event) => {
     if (onProgress && event.lengthComputable) onProgress(event.loaded / event.total);
   });
 
