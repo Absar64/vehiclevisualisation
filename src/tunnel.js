@@ -206,16 +206,14 @@ export class WarpTunnel {
     const step = 1 / this._detail;
     this.rings.forEach((ring, i) => {
       ring.userData.culled = Math.floor(i % step) !== 0;
+      // Culling only — see the note in streetscape.setDetail.
+      ring.visible = !ring.userData.culled;
     });
   }
 
   setOpacity(value) {
     this.opacity = clamp(value, 0, 1);
     this.group.visible = this.opacity > 0.001;
-    // Culled rings stay hidden regardless of the fade.
-    for (const ring of this.rings) {
-      if (ring.userData.culled) ring.visible = false;
-    }
   }
 
   /** Puts every ring back to its resting layout (used when replaying boot). */

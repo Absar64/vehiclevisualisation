@@ -84,7 +84,11 @@ export class Streetscape {
     const step = 1 / this._detail;
     this.props.forEach((prop, i) => {
       prop.userData.culled = Math.floor(i % step) !== 0;
-      prop.visible = !prop.userData.culled && this.opacity > 0.002;
+      // Culling only. The fade belongs to the group, and mixing the two here
+      // is what made the scenery disappear for good: a tier change lands
+      // while the layer is faded out, every prop gets switched off, and
+      // nothing ever switches the kept ones back on.
+      prop.visible = !prop.userData.culled;
     });
   }
 
@@ -160,10 +164,6 @@ export class Streetscape {
     this.material.uniforms.uOpacity.value = this.opacity * STREET.opacity;
     this.dashMaterial.uniforms.uOpacity.value = this.opacity * STREET.dash.opacity;
     this.group.visible = this.opacity > 0.002;
-    // Culled props stay hidden regardless of the fade.
-    for (const prop of this.props) {
-      if (prop.userData.culled) prop.visible = false;
-    }
   }
 
   /** Returns every prop to the slot it was laid out in. */
