@@ -799,6 +799,8 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     get idleOrbit() {
       return idle;
     },
+    /** The DOM overlay, for inspection. */
+    hud,
     /**
      * Traffic signals and speed cameras. Supply your own with
      * `furniture.setItems([{type:'signal'|'camera', distance, lateral}, …])`

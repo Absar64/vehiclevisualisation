@@ -5,10 +5,13 @@
  * files, so nothing here is hard-coded: the folder is read at runtime and
  * whatever is in it becomes the cast list. Two ways, in order:
  *
- *   1. `Mii/manifest.json` — an explicit array of filenames, for hosts that
- *      serve no directory index (most production static hosts).
+ *   1. `mii/manifest.json` — an explicit array of filenames, for hosts that
+ *      serve no directory index. **GitHub Pages is one of them**, so anything
+ *      deployed there needs this file kept in step with the folder: without
+ *      it the request below returns the host's 404 page and the cast is
+ *      empty. Locally it is optional.
  *   2. The directory listing itself, which is what the dev server returns.
- *      This is the path that makes "just drop a file in" work.
+ *      This is the path that makes "just drop a file in" work in development.
  *
  * A name comes from the filename with the `_mii` suffix stripped, as asked:
  * `absar_mii.glb` is Absar.
@@ -20,7 +23,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const FOLDER = './Mii/';
+/**
+ * Lower case, matching the folder on disk exactly.
+ *
+ * Windows does not care about the case, which is why this read `./Mii/` for a
+ * long time and worked locally. A static host serving from Linux does care:
+ * there, `./Mii/` is simply not the folder that exists and every head 404s.
+ */
+const FOLDER = './mii/';
 const loader = new GLTFLoader();
 
 /** url -> Promise<{scene, skin, hair}> */

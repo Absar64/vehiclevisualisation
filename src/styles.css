@@ -137,6 +137,7 @@ body {
     local('Billion Dreams Bold'),
     local('BillionDreams-Bold'),
     local('Billion Dreams'),
+    url('../fonts/BillionDreams_PERSONAL.ttf') format('truetype'),
     url('../fonts/BillionDreams-Bold.woff2') format('woff2'),
     url('../fonts/BillionDreams-Bold.otf') format('opentype'),
     url('../fonts/BillionDreams-Bold.ttf') format('truetype');
