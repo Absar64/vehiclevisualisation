@@ -1,8 +1,18 @@
 /* ── Ultra-wide press-reveal shell ─────────────────────────────────────────
-   The stage locks the 461:165 banner ratio on pure black. It is also a size
-   container, so every HUD dimension below is expressed in cqw/cqh and scales
-   with the banner rather than with the viewport — a readout sized in vw would
-   blow out of a small embed.                                              */
+   The stage holds the 461:165 banner ratio on pure black wherever there is
+   room for it, and fills the screen where there is not — on a phone the
+   banner comes out as a 375x134 strip with 84% of the display left black,
+   which is not a layout so much as a disappearance.
+
+   It is a size container, so HUD dimensions are expressed relative to it
+   rather than to the viewport: a readout sized in vw would blow out of a
+   small embed.
+
+   Vertical dimensions go through `--u` rather than cqh directly. On the
+   design ratio the two are identical, but once the stage fills a tall phone
+   screen, raw cqh balloons — 43cqh of a 812px-tall stage is a 349px digit.
+   `--u` tracks whichever of height or width is the binding constraint, so
+   the HUD keeps the proportions it was drawn with at any shape.           */
 
 :root {
   --stage-ratio: 461 / 165;   /* ≈ 2.794 : 1 ultra-wide banner */
@@ -40,6 +50,41 @@ body {
   isolation: isolate;
   container-type: size;
   container-name: stage;
+}
+
+/* Declared on the stage's children, not the stage: a container query unit
+   used *on* a container resolves against that container's own ancestor, not
+   itself, so `--u` would silently measure the wrong box here. Children
+   inherit the computed length down the whole tree.
+
+   This has to come *before* the media query below: both are one class plus a
+   universal selector, so they carry identical specificity and whichever is
+   written last wins regardless of the query. */
+.stage > * {
+  --u: min(1cqh, calc(1cqw / 2.794));
+}
+
+/* Where there is not room for the banner — phones, and car head units in
+   portrait — the stage takes the whole screen instead of shrinking to a
+   sliver in the middle of it. The camera compensates in main.js so the car
+   stays framed rather than being cropped at the sides. */
+@media (max-width: 900px), (max-aspect-ratio: 8 / 5) {
+  .stage {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+  }
+
+  /* A filled phone screen needs its own unit. Held to strict proportion,
+     `--u` lands at 1.3px and the controls come out about four pixels tall —
+     correct, and unreadable. A phone is also held at arm's length rather than
+     across a desk, so the HUD is scaled up against width here and capped
+     against height so it cannot overrun a short stage. */
+  .stage > * {
+    --u: min(calc(1cqw / 1.1), calc(1cqh / 2));
+  }
 }
 
 .stage__canvas {
@@ -95,7 +140,7 @@ body {
   --surge: 0;
   position: absolute;
   right: 2.2cqw;
-  bottom: 7cqh;
+  bottom: calc(7 * var(--u));
   display: flex;
   align-items: baseline;
   gap: 1.1cqw;
@@ -106,22 +151,22 @@ body {
 }
 
 .hud__value {
-  font-size: 43cqh;
+  font-size: calc(43 * var(--u));
   font-weight: 800;
   line-height: 0.82;
   letter-spacing: -0.045em;
   color: #ffffff;
   text-shadow:
-    0 0 calc(2cqh + var(--surge) * 4cqh) rgba(255, 255, 255, calc(0.25 + var(--surge) * 0.45)),
-    0 0 calc(6cqh + var(--surge) * 14cqh) rgba(255, 138, 43, calc(var(--surge) * 0.75));
+    0 0 calc(calc(2 * var(--u)) + var(--surge) * calc(4 * var(--u))) rgba(255, 255, 255, calc(0.25 + var(--surge) * 0.45)),
+    0 0 calc(calc(6 * var(--u)) + var(--surge) * calc(14 * var(--u))) rgba(255, 138, 43, calc(var(--surge) * 0.75));
 }
 
 .hud__unit {
-  font-size: 8cqh;
+  font-size: calc(8 * var(--u));
   font-weight: 700;
   letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.58);
-  padding-bottom: 2cqh;
+  padding-bottom: calc(2 * var(--u));
 }
 
 /* Welcome line on the boot screen. A light serif against the HUD's technical
@@ -150,7 +195,7 @@ body {
   position: absolute;
   /* Top right, tucked under the settings button rather than beside it. */
   right: 3.2cqw;
-  top: 12cqh;
+  top: calc(12 * var(--u));
   max-width: 52cqw;
   text-align: right;
   opacity: 0;
@@ -161,14 +206,14 @@ body {
     'SF Pro Display', Roboto, 'Helvetica Neue', Arial, sans-serif;
   /* Brush scripts carry a small x-height for their point size, so this is set
      larger than the sans fallback would want. */
-  font-size: 11cqh;
+  font-size: calc(11 * var(--u));
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: 0;
   color: rgba(255, 255, 255, 0.94);
   text-shadow:
-    0 0 3cqh rgba(0, 0, 0, 0.85),
-    0 0 9cqh rgba(120, 170, 255, 0.18);
+    0 0 calc(3 * var(--u)) rgba(0, 0, 0, 0.85),
+    0 0 calc(9 * var(--u)) rgba(120, 170, 255, 0.18);
 }
 
 /* Edge flare for the hardest launches: heat bleeding in from the frame edges.
@@ -190,9 +235,9 @@ body {
 .panel {
   position: absolute;
   left: 3.2cqw;
-  bottom: 22cqh;
+  bottom: calc(22 * var(--u));
   pointer-events: auto;
-  font-size: 3cqh;
+  font-size: calc(3 * var(--u));
   transition: opacity 300ms ease;
 }
 
@@ -201,24 +246,24 @@ body {
 .panel__body {
   display: none;
   position: relative;
-  padding: 2cqh;
-  width: 46cqh;
+  padding: calc(2 * var(--u));
+  width: calc(46 * var(--u));
   background: rgba(10, 10, 12, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 1.2cqh;
+  border-radius: calc(1.2 * var(--u));
   backdrop-filter: blur(10px);
 }
 
 .panel__close {
   position: absolute;
-  top: 0.6cqh;
-  right: 1cqh;
-  padding: 0 0.6cqh;
+  top: calc(0.6 * var(--u));
+  right: calc(1 * var(--u));
+  padding: 0 calc(0.6 * var(--u));
   border: 0;
   background: none;
   color: rgba(255, 255, 255, 0.5);
   font: inherit;
-  font-size: 4.4cqh;
+  font-size: calc(4.4 * var(--u));
   line-height: 1;
   cursor: pointer;
 }
@@ -230,15 +275,15 @@ body {
 .panel__row {
   display: flex;
   align-items: center;
-  gap: 1.4cqh;
+  gap: calc(1.4 * var(--u));
 }
 
 .panel__slider {
   flex: 1;
   -webkit-appearance: none;
   appearance: none;
-  height: 0.6cqh;
-  border-radius: 1cqh;
+  height: calc(0.6 * var(--u));
+  border-radius: calc(1 * var(--u));
   background: linear-gradient(90deg, #5a2a0a, var(--amber));
   outline: none;
   cursor: pointer;
@@ -247,26 +292,26 @@ body {
 .panel__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 2.6cqh;
-  height: 2.6cqh;
+  width: calc(2.6 * var(--u));
+  height: calc(2.6 * var(--u));
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 0 2cqh rgba(255, 138, 43, 0.8);
+  box-shadow: 0 0 calc(2 * var(--u)) rgba(255, 138, 43, 0.8);
   cursor: pointer;
 }
 
 .panel__slider::-moz-range-thumb {
-  width: 2.6cqh;
-  height: 2.6cqh;
+  width: calc(2.6 * var(--u));
+  height: calc(2.6 * var(--u));
   border: none;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 0 2cqh rgba(255, 138, 43, 0.8);
+  box-shadow: 0 0 calc(2 * var(--u)) rgba(255, 138, 43, 0.8);
   cursor: pointer;
 }
 
 .panel__readout {
-  min-width: 6cqh;
+  min-width: calc(6 * var(--u));
   text-align: right;
   font-weight: 700;
   color: var(--amber-hot);
@@ -275,18 +320,18 @@ body {
 .panel__presets {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.8cqh;
-  margin-top: 1.6cqh;
+  gap: calc(0.8 * var(--u));
+  margin-top: calc(1.6 * var(--u));
 }
 
 .panel__button {
-  padding: 1.1cqh 0.4cqh;
+  padding: calc(1.1 * var(--u)) calc(0.4 * var(--u));
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.8cqh;
+  border-radius: calc(0.8 * var(--u));
   color: rgba(255, 255, 255, 0.82);
   font: inherit;
-  font-size: 2.7cqh;
+  font-size: calc(2.7 * var(--u));
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -305,7 +350,7 @@ body {
 
 .panel__button--wide {
   width: 100%;
-  margin-top: 0.8cqh;
+  margin-top: calc(0.8 * var(--u));
   letter-spacing: 0.14em;
 }
 
@@ -316,17 +361,17 @@ body {
 .now {
   position: absolute;
   left: 3.2cqw;
-  top: 7cqh;
+  top: calc(7 * var(--u));
   display: flex;
   align-items: center;
-  gap: 2cqh;
+  gap: calc(2 * var(--u));
   max-width: 46cqw;
-  padding: 1.6cqh 2.4cqh 1.6cqh 1.6cqh;
+  padding: calc(1.6 * var(--u)) calc(2.4 * var(--u)) calc(1.6 * var(--u)) calc(1.6 * var(--u));
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 1.4cqh;
+  border-radius: calc(1.4 * var(--u));
   background: rgba(8, 9, 12, 0.55);
   opacity: 0;
-  transform: translateY(-0.8cqh);
+  transform: translateY(calc(-0.8 * var(--u)));
   transition: opacity 400ms ease, transform 400ms ease;
   pointer-events: none;
 }
@@ -337,11 +382,11 @@ body {
 
 .now__art {
   flex: none;
-  width: 15cqh;
-  height: 15cqh;
-  border-radius: 0.8cqh;
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+  border-radius: calc(0.8 * var(--u));
   background: rgba(255, 255, 255, 0.05) center / cover no-repeat;
-  box-shadow: 0 0 3cqh rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 calc(3 * var(--u)) rgba(0, 0, 0, 0.7);
 }
 
 .now:not(.has-track) .now__art,
@@ -352,11 +397,11 @@ body {
 .now__heading {
   display: flex;
   align-items: center;
-  gap: 1.2cqh;
+  gap: calc(1.2 * var(--u));
 }
 
 .now__title {
-  font-size: 4.4cqh;
+  font-size: calc(4.4 * var(--u));
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #ffffff;
@@ -366,8 +411,8 @@ body {
 }
 
 .now__artist {
-  margin-top: 0.4cqh;
-  font-size: 3.6cqh;
+  margin-top: calc(0.4 * var(--u));
+  font-size: calc(3.6 * var(--u));
   font-weight: 500;
   color: rgba(255, 255, 255, 0.52);
   white-space: nowrap;
@@ -380,14 +425,14 @@ body {
   flex: none;
   display: flex;
   align-items: flex-end;
-  gap: 0.5cqh;
-  height: 4cqh;
+  gap: calc(0.5 * var(--u));
+  height: calc(4 * var(--u));
 }
 
 .now__eq span {
-  width: 0.7cqh;
+  width: calc(0.7 * var(--u));
   height: 25%;
-  border-radius: 0.4cqh;
+  border-radius: calc(0.4 * var(--u));
   background: #1ed760;
   transform-origin: bottom;
 }
@@ -415,8 +460,8 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  width: 9cqh;
-  height: 9cqh;
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -444,7 +489,7 @@ body {
 .now:not(.is-connected) {
   opacity: 1;
   transform: none;
-  padding: 0.6cqh;
+  padding: calc(0.6 * var(--u));
   border-color: transparent;
   background: transparent;
 }
@@ -563,13 +608,13 @@ body {
   /* The bottom-left corner is its own now that the simulator is reached from
      the settings menu instead of a toggle sat down here. */
   left: 3.2cqw;
-  bottom: 7cqh;
+  bottom: calc(7 * var(--u));
   display: flex;
   /* Anchored to the bottom, so the list has to open upward — downward it would
      render past the stage edge and be clipped away entirely. */
   flex-direction: column-reverse;
   align-items: flex-start;
-  gap: 1cqh;
+  gap: calc(1 * var(--u));
   opacity: 0;
   pointer-events: none;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -578,13 +623,13 @@ body {
 }
 
 .rider__button {
-  padding: 1.6cqh 2.6cqh;
+  padding: calc(1.6 * var(--u)) calc(2.6 * var(--u));
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 1.2cqh;
+  border-radius: calc(1.2 * var(--u));
   background: rgba(10, 12, 16, 0.6);
   color: rgba(255, 255, 255, 0.82);
   font: inherit;
-  font-size: 3.4cqh;
+  font-size: calc(3.4 * var(--u));
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -602,27 +647,27 @@ body {
 .rider__list {
   display: none;
   flex-direction: column;
-  gap: 0.6cqh;
-  padding: 1.2cqh;
-  min-width: 34cqh;
+  gap: calc(0.6 * var(--u));
+  padding: calc(1.2 * var(--u));
+  min-width: calc(34 * var(--u));
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 1.2cqh;
+  border-radius: calc(1.2 * var(--u));
   background: rgba(8, 9, 12, 0.88);
   backdrop-filter: blur(10px);
-  max-height: 46cqh;
+  max-height: calc(46 * var(--u));
   overflow-y: auto;
 }
 
 .rider.is-open .rider__list { display: flex; }
 
 .rider__option {
-  padding: 1.4cqh 2cqh;
+  padding: calc(1.4 * var(--u)) calc(2 * var(--u));
   border: 1px solid transparent;
-  border-radius: 0.9cqh;
+  border-radius: calc(0.9 * var(--u));
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.86);
   font: inherit;
-  font-size: 3.2cqh;
+  font-size: calc(3.2 * var(--u));
   font-weight: 600;
   text-align: right;
   cursor: pointer;
@@ -637,8 +682,8 @@ body {
 }
 
 .rider__empty {
-  padding: 1.2cqh 1.6cqh;
-  font-size: 3cqh;
+  padding: calc(1.2 * var(--u)) calc(1.6 * var(--u));
+  font-size: calc(3 * var(--u));
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -648,11 +693,11 @@ body {
 .settings {
   position: absolute;
   right: 3.2cqw;
-  top: 5cqh;
+  top: calc(5 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1cqh;
+  gap: calc(1 * var(--u));
   pointer-events: auto;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   z-index: 7;
@@ -661,8 +706,8 @@ body {
 .settings__button {
   display: grid;
   place-items: center;
-  width: 9cqh;
-  height: 9cqh;
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 50%;
@@ -673,31 +718,31 @@ body {
   transition: color 160ms ease, background 160ms ease;
 }
 
-.settings__button svg { width: 5.4cqh; height: 5.4cqh; display: block; }
+.settings__button svg { width: calc(5.4 * var(--u)); height: calc(5.4 * var(--u)); display: block; }
 
 .settings__button:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
 
 .settings__menu {
   display: none;
   flex-direction: column;
-  gap: 0.6cqh;
-  padding: 1.2cqh;
-  min-width: 34cqh;
+  gap: calc(0.6 * var(--u));
+  padding: calc(1.2 * var(--u));
+  min-width: calc(34 * var(--u));
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 1.2cqh;
+  border-radius: calc(1.2 * var(--u));
   /* Nearly opaque: it opens straight over the welcome line, which shows
      through anything lighter and makes both hard to read. */
   background: rgba(8, 9, 12, 0.96);
   backdrop-filter: blur(10px);
-  font-size: 3.2cqh;
+  font-size: calc(3.2 * var(--u));
 }
 
 .settings.is-open .settings__menu { display: flex; }
 
 .settings__item {
-  padding: 1.4cqh 2cqh;
+  padding: calc(1.4 * var(--u)) calc(2 * var(--u));
   border: 1px solid transparent;
-  border-radius: 0.9cqh;
+  border-radius: calc(0.9 * var(--u));
   background: none;
   color: rgba(255, 255, 255, 0.8);
   font: inherit;
@@ -714,9 +759,9 @@ body {
 .rider__hide {
   display: flex;
   align-items: center;
-  gap: 1.2cqh;
-  padding: 1.4cqh 2cqh;
-  border-radius: 0.9cqh;
+  gap: calc(1.2 * var(--u));
+  padding: calc(1.4 * var(--u)) calc(2 * var(--u));
+  border-radius: calc(0.9 * var(--u));
   color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   user-select: none;
@@ -727,8 +772,8 @@ body {
 
 .settings__row input,
 .rider__hide input {
-  width: 3.2cqh;
-  height: 3.2cqh;
+  width: calc(3.2 * var(--u));
+  height: calc(3.2 * var(--u));
   margin: 0;
   accent-color: #7fc4ff;
   cursor: pointer;
@@ -740,6 +785,6 @@ body {
   align-self: flex-start;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(10, 12, 16, 0.6);
-  font-size: 3.2cqh;
+  font-size: calc(3.2 * var(--u));
   backdrop-filter: blur(6px);
 }

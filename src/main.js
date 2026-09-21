@@ -252,6 +252,44 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     camera.updateProjectionMatrix();
   }
 
+  /**
+   * The design aspect, and how much the lens has to open to survive a
+   * narrower one.
+   *
+   * A perspective camera's `fov` is *vertical*, so the horizontal extent is
+   * `fov × aspect`. Filling a phone screen drops the aspect from 2.794 to
+   * about 0.46, which would cut the horizontal view to a sixth and slice the
+   * car off at both doors. Widening the vertical fov until the horizontal
+   * extent matches the design keeps the whole car in frame; the picture shows
+   * *more* above and below rather than less to the sides.
+   */
+  const DESIGN_ASPECT = 461 / 165;
+
+  /** Vertical fov, in degrees, that preserves the design's horizontal view. */
+  function framedFov(fov) {
+    if (camera.aspect >= DESIGN_ASPECT) return fov;
+    const halfWidth = Math.tan(THREE.MathUtils.degToRad(fov) / 2) * DESIGN_ASPECT;
+    return THREE.MathUtils.radToDeg(2 * Math.atan(halfWidth / camera.aspect));
+  }
+
+  /**
+   * Renders with the compensated lens, then puts the logical one back.
+   *
+   * Restoring matters: every subsystem writes `camera.fov` each frame and
+   * several compare against what they last wrote, so leaving a widened value
+   * on the camera would compound frame after frame.
+   */
+  function render() {
+    const logical = camera.fov;
+    const framed = framedFov(logical);
+    if (framed !== logical) {
+      camera.fov = framed;
+      camera.updateProjectionMatrix();
+    }
+    renderer.render(scene, camera);
+    camera.fov = logical;
+  }
+
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(container);
   window.addEventListener('resize', resize);
@@ -691,7 +729,7 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     else updateDrive(dt);
 
     hud.update(speed, surge.power);
-    renderer.render(scene, camera);
+    render();
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────
@@ -734,7 +772,7 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
       if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
       else renderer.compile(scene, camera);
       if (disposed) return;
-      renderer.render(scene, camera);
+      render();
 
       onReady?.();
 
