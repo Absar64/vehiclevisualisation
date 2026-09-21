@@ -1,1 +1,3 @@
 .claude/
+# The uncompressed 46 MB source model, kept locally for re-exports.
+bmw.original.glb.bak

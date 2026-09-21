@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { ASSET, RENDER } from './config.js';
 
 const AXLE_AXIS = new THREE.Vector3(1, 0, 0);
@@ -189,6 +190,13 @@ class Wheel {
  */
 export async function loadCar(envMap, onProgress) {
   const loader = new GLTFLoader();
+
+  // The model is meshopt-compressed: 46 MB of raw glTF down to 5.8 MB, which
+  // is the difference between loading and not on a car head unit — the
+  // uncompressed file died mid-download at 32 MB there. Meshopt rather than
+  // Draco because it decodes several times faster, and the devices that need
+  // the smaller download are the same ones that cannot afford a slow decode.
+  loader.setMeshoptDecoder(MeshoptDecoder);
 
   const gltf = await loader.loadAsync(ASSET.url, (event) => {
     if (onProgress && event.lengthComputable) onProgress(event.loaded / event.total);
