@@ -810,8 +810,15 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
       console.error('[showcase] failed to load the vehicle asset:', error);
       // Say so on the page. A console message is no use on a car head unit or
       // a phone, which is exactly where this fails.
+      // This particular error means the browser is running a cached copy of
+      // the code from before the model was compressed: old script, new asset.
+      // It is not a device problem and it clears on a reload, so say that
+      // rather than leaving someone reading a stack trace about decoders.
+      const stale = /setMeshoptDecoder/.test(error?.message ?? '');
       window.__showcaseFail?.(
-        `The car model (bmw.glb) failed to load: ${error?.message ?? error}`
+        stale
+          ? 'Your browser is holding an old cached copy of this page. Reload it — on Android, pull down to refresh or clear the browser cache once.'
+          : `The car model (bmw.glb) failed to load: ${error?.message ?? error}`
       );
       throw error;
     });
