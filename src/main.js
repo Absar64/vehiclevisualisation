@@ -238,10 +238,37 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
   spotify.start();
 
   // ── Sizing (high-DPI aware) ──────────────────────────────────────────────
+  /**
+   * The same condition as the stylesheet's fill breakpoint, so the two cannot
+   * disagree about which layout is in force.
+   */
+  const fillQuery = window.matchMedia('(max-width: 900px), (max-aspect-ratio: 8 / 5)');
+
+  /**
+   * Publishes the HUD's sizing units as plain pixels.
+   *
+   * These were container query units, which is the tidier way to express them
+   * and which a 2022 Android WebView does not implement — Chrome only shipped
+   * them in 105, and car head units run well behind that. There, every
+   * `cqh`/`cqw` length is invalid, so the whole HUD loses its dimensions and
+   * the page is unusable even when the 3D side is fine.
+   *
+   * Computing them here costs one pass per resize and works everywhere.
+   */
+  function publishUnits(width, height) {
+    const u = fillQuery.matches
+      ? Math.min(width / 110, height / 200)
+      : Math.min(height / 100, width / 279.4);
+    container.style.setProperty('--u', `${u}px`);
+    container.style.setProperty('--w', `${width / 100}px`);
+  }
+
   function resize() {
     const width = container.clientWidth;
     const height = container.clientHeight;
     if (!width || !height) return;
+
+    publishUnits(width, height);
 
     // Cap the device pixel ratio: beyond 2x the extra fragments buy nothing
     // visible on this kind of banner but cost a lot on dense mobile panels.

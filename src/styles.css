@@ -4,15 +4,19 @@
    banner comes out as a 375x134 strip with 84% of the display left black,
    which is not a layout so much as a disappearance.
 
-   It is a size container, so HUD dimensions are expressed relative to it
-   rather than to the viewport: a readout sized in vw would blow out of a
-   small embed.
+   HUD dimensions are expressed relative to the stage rather than to the
+   viewport, through two units that main.js publishes on resize:
 
-   Vertical dimensions go through `--u` rather than cqh directly. On the
-   design ratio the two are identical, but once the stage fills a tall phone
-   screen, raw cqh balloons — 43cqh of a 812px-tall stage is a 349px digit.
-   `--u` tracks whichever of height or width is the binding constraint, so
-   the HUD keeps the proportions it was drawn with at any shape.           */
+     --u  the vertical unit. On the design ratio it is 1% of stage height.
+          Filling a tall phone screen it tracks width instead, because raw
+          height would balloon — 43% of an 812px stage is a 349px digit.
+     --w  1% of stage width.
+
+   These were container query units, which expresses the same thing in pure
+   CSS. They are computed in JavaScript because Chrome only shipped container
+   queries in version 105, and Android head units run well behind that: on
+   Chrome 101 every cq length is invalid and the HUD loses its dimensions
+   entirely. Pixels published from a ResizeObserver work everywhere.       */
 
 :root {
   --stage-ratio: 461 / 165;   /* ≈ 2.794 : 1 ultra-wide banner */
@@ -52,18 +56,6 @@ body {
   container-name: stage;
 }
 
-/* Declared on the stage's children, not the stage: a container query unit
-   used *on* a container resolves against that container's own ancestor, not
-   itself, so `--u` would silently measure the wrong box here. Children
-   inherit the computed length down the whole tree.
-
-   This has to come *before* the media query below: both are one class plus a
-   universal selector, so they carry identical specificity and whichever is
-   written last wins regardless of the query. */
-.stage > * {
-  --u: min(1cqh, calc(1cqw / 2.794));
-}
-
 /* Where there is not room for the banner — phones, and car head units in
    portrait — the stage takes the whole screen instead of shrinking to a
    sliver in the middle of it. The camera compensates in main.js so the car
@@ -75,15 +67,6 @@ body {
     height: 100%;
     max-width: none;
     max-height: none;
-  }
-
-  /* A filled phone screen needs its own unit. Held to strict proportion,
-     `--u` lands at 1.3px and the controls come out about four pixels tall —
-     correct, and unreadable. A phone is also held at arm's length rather than
-     across a desk, so the HUD is scaled up against width here and capped
-     against height so it cannot overrun a short stage. */
-  .stage > * {
-    --u: min(calc(1cqw / 1.1), calc(1cqh / 2));
   }
 }
 
@@ -139,11 +122,11 @@ body {
 .hud__readout {
   --surge: 0;
   position: absolute;
-  right: 2.2cqw;
+  right: calc(2.2 * var(--w));
   bottom: calc(7 * var(--u));
   display: flex;
   align-items: baseline;
-  gap: 1.1cqw;
+  gap: calc(1.1 * var(--w));
   /* Scale and glow lift slightly while accelerating. */
   transform: scale(calc(1 + var(--surge) * 0.045));
   transform-origin: 100% 100%;
@@ -194,9 +177,9 @@ body {
 .welcome {
   position: absolute;
   /* Top right, tucked under the settings button rather than beside it. */
-  right: 3.2cqw;
+  right: calc(3.2 * var(--w));
   top: calc(12 * var(--u));
-  max-width: 52cqw;
+  max-width: calc(52 * var(--w));
   text-align: right;
   opacity: 0;
   pointer-events: none;
@@ -234,7 +217,7 @@ body {
    the passenger control owns. */
 .panel {
   position: absolute;
-  left: 3.2cqw;
+  left: calc(3.2 * var(--w));
   bottom: calc(22 * var(--u));
   pointer-events: auto;
   font-size: calc(3 * var(--u));
@@ -360,12 +343,12 @@ body {
    track runs, a glyph to connect — so the only text is the track's own. */
 .now {
   position: absolute;
-  left: 3.2cqw;
+  left: calc(3.2 * var(--w));
   top: calc(7 * var(--u));
   display: flex;
   align-items: center;
   gap: calc(2 * var(--u));
-  max-width: 46cqw;
+  max-width: calc(46 * var(--w));
   padding: calc(1.6 * var(--u)) calc(2.4 * var(--u)) calc(1.6 * var(--u)) calc(1.6 * var(--u));
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: calc(1.4 * var(--u));
@@ -607,7 +590,7 @@ body {
   position: absolute;
   /* The bottom-left corner is its own now that the simulator is reached from
      the settings menu instead of a toggle sat down here. */
-  left: 3.2cqw;
+  left: calc(3.2 * var(--w));
   bottom: calc(7 * var(--u));
   display: flex;
   /* Anchored to the bottom, so the list has to open upward — downward it would
@@ -692,7 +675,7 @@ body {
    below it and holds the things that are not part of setting off. */
 .settings {
   position: absolute;
-  right: 3.2cqw;
+  right: calc(3.2 * var(--w));
   top: calc(5 * var(--u));
   display: flex;
   flex-direction: column;
