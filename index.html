@@ -27,6 +27,68 @@
     <!-- Minimal loading affordance: a single hairline that fills, then fades out. -->
     <div class="loader" id="loader"><div class="loader__bar" id="loaderBar"></div></div>
   </main>
+
+  <!-- Failure overlay. Styled inline so it still shows if the stylesheet is
+       the thing that failed, and populated by the classic script below. -->
+  <div id="fatal" style="display:none;position:fixed;inset:0;z-index:99;padding:24px;
+       background:#0b0b0d;color:#eee;font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;
+       overflow:auto">
+    <div style="max-width:620px;margin:0 auto">
+      <h1 style="font-size:18px;margin:0 0 10px">This device can't run the showcase</h1>
+      <p id="fatalMsg" style="margin:0 0 14px;color:#ff8f8f"></p>
+      <p style="margin:0;color:#9aa">Open <a href="./check.html" style="color:#7fc4ff">check.html</a>
+         for a full report of what this browser supports.</p>
+    </div>
+  </div>
+
+  <!--
+    Classic script, deliberately not a module and deliberately first.
+
+    A browser that cannot parse modules or import maps never runs main.js at
+    all, so anything that reports errors from inside main.js reports nothing
+    on exactly the devices worth diagnosing. This runs everywhere, catches
+    what the module throws, and turns a black screen into a sentence.
+  -->
+  <script>
+  (function () {
+    var fatal = document.getElementById('fatal');
+    var msg = document.getElementById('fatalMsg');
+    var shown = false;
+    function fail(text) {
+      if (shown) return;
+      shown = true;
+      msg.textContent = text;
+      fatal.style.display = 'block';
+    }
+    window.__showcaseFail = fail;
+
+    window.addEventListener('error', function (e) {
+      fail(e.message || 'Script error');
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason;
+      fail((r && (r.message || r)) || 'Unhandled promise rejection');
+    });
+
+    // Checked up front, because these produce a silent black screen rather
+    // than an exception anyone would see.
+    if (!('noModule' in document.createElement('script'))) {
+      fail('This browser does not support JavaScript modules, which the app is built on. It needs a newer browser.');
+      return;
+    }
+    if (!(window.HTMLScriptElement && HTMLScriptElement.supports &&
+          HTMLScriptElement.supports('importmap'))) {
+      fail('This browser does not support import maps, so the 3D library cannot load. Chrome 89+, Safari 16.4+ or a current Android System WebView is required.');
+      return;
+    }
+    var gl = null;
+    try { gl = document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+    if (!gl) {
+      fail('This browser does not support WebGL 2, which is required to render the car.');
+    }
+  })();
+  </script>
+
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

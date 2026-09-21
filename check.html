@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Device check</title>
+<!--
+  Deliberately written in old-fashioned JavaScript: no modules, no arrow
+  functions, no template literals, no const/let. This page has to run on the
+  browser that is failing, and half the things worth testing for are things
+  that would stop a modern script executing at all.
+-->
+<style>
+  body { margin: 0; padding: 16px; background: #111; color: #eee;
+         font: 14px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; }
+  h1 { font-size: 17px; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; max-width: 720px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+  td:first-child { color: #9aa; width: 42%; white-space: nowrap; }
+  .ok { color: #6ed07a; } .bad { color: #ff6b6b; font-weight: 700; } .warn { color: #ffc555; }
+  #out { word-break: break-word; }
+</style>
+</head>
+<body>
+<h1>Device check</h1>
+<table id="out"></table>
+<script>
+(function () {
+  var rows = [];
+  function add(label, value, state) {
+    rows.push([label, String(value), state || '']);
+    render();
+  }
+  function render() {
+    var html = '';
+    for (var i = 0; i < rows.length; i++) {
+      html += '<tr><td>' + rows[i][0] + '</td><td class="' + rows[i][2] + '">' + rows[i][1] + '</td></tr>';
+    }
+    document.getElementById('out').innerHTML = html;
+  }
+
+  // Anything thrown anywhere on the page lands here, so a failure is visible
+  // rather than being swallowed into a console nobody can open.
+  window.onerror = function (message, src, line) {
+    add('JS ERROR', message + ' (' + src + ':' + line + ')', 'bad');
+  };
+
+  add('User agent', navigator.userAgent);
+  add('Screen', screen.width + ' x ' + screen.height +
+      '  |  window ' + window.innerWidth + ' x ' + window.innerHeight +
+      '  |  DPR ' + (window.devicePixelRatio || 1));
+  add('Device memory', navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'not reported');
+  add('CPU cores', navigator.hardwareConcurrency || 'not reported');
+
+  // --- The three things most likely to black-screen the app ----------------
+  var modules = 'noModule' in document.createElement('script');
+  add('ES modules', modules ? 'supported' : 'NOT SUPPORTED', modules ? 'ok' : 'bad');
+
+  var importmap = !!(window.HTMLScriptElement && HTMLScriptElement.supports &&
+                     HTMLScriptElement.supports('importmap'));
+  add('Import maps', importmap ? 'supported' : 'NOT SUPPORTED', importmap ? 'ok' : 'bad');
+
+  function ctx(kind) {
+    try {
+      var c = document.createElement('canvas');
+      return c.getContext(kind);
+    } catch (e) { return null; }
+  }
+  var gl2 = ctx('webgl2');
+  var gl1 = gl2 || ctx('webgl') || ctx('experimental-webgl');
+  add('WebGL 2', gl2 ? 'supported' : 'NOT SUPPORTED', gl2 ? 'ok' : 'bad');
+  add('WebGL 1', gl1 ? 'supported' : 'not supported', gl1 ? 'ok' : 'bad');
+
+  if (gl1) {
+    var info = null;
+    try { info = gl1.getExtension('WEBGL_debug_renderer_info'); } catch (e) {}
+    if (info) {
+      add('GPU', gl1.getParameter(info.UNMASKED_RENDERER_WEBGL));
+    }
+    add('Max texture size', gl1.getParameter(gl1.MAX_TEXTURE_SIZE) + ' px');
+  }
+
+  var cq = false;
+  try { cq = window.CSS && CSS.supports && CSS.supports('container-type', 'size'); } catch (e) {}
+  add('CSS container queries', cq ? 'supported' : 'NOT SUPPORTED', cq ? 'ok' : 'bad');
+
+  // --- Can this device actually pull down the model? ----------------------
+  add('Model download', 'starting…', 'warn');
+  var modelRow = rows.length - 1;
+  function setModel(text, state) { rows[modelRow] = ['Model download', text, state]; render(); }
+
+  var started = new Date().getTime();
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'bmw.glb', true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onprogress = function (e) {
+      var mb = (e.loaded / 1048576).toFixed(1);
+      var secs = ((new Date().getTime() - started) / 1000).toFixed(1);
+      setModel(mb + ' MB after ' + secs + 's', 'warn');
+    };
+    xhr.onload = function () {
+      var secs = ((new Date().getTime() - started) / 1000).toFixed(1);
+      var mb = (xhr.response ? xhr.response.byteLength / 1048576 : 0).toFixed(1);
+      if (xhr.status === 200) {
+        setModel('OK — ' + mb + ' MB in ' + secs + 's', mb > 0 ? 'ok' : 'bad');
+      } else {
+        setModel('HTTP ' + xhr.status, 'bad');
+      }
+    };
+    xhr.onerror = function () { setModel('NETWORK ERROR (out of memory, or blocked)', 'bad'); };
+    xhr.send();
+  } catch (e) {
+    setModel('threw: ' + e, 'bad');
+  }
+})();
+</script>
+</body>
+</html>

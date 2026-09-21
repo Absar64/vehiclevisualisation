@@ -743,6 +743,11 @@ export function createShowcase({ container, canvas, onProgress, onReady }) {
     })
     .catch((error) => {
       console.error('[showcase] failed to load the vehicle asset:', error);
+      // Say so on the page. A console message is no use on a car head unit or
+      // a phone, which is exactly where this fails.
+      window.__showcaseFail?.(
+        `The car model (bmw.glb, 46 MB) failed to load: ${error?.message ?? error}`
+      );
       throw error;
     });
 
