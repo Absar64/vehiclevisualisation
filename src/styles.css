@@ -1,0 +1,745 @@
+/* ── Ultra-wide press-reveal shell ─────────────────────────────────────────
+   The stage locks the 461:165 banner ratio on pure black. It is also a size
+   container, so every HUD dimension below is expressed in cqw/cqh and scales
+   with the banner rather than with the viewport — a readout sized in vw would
+   blow out of a small embed.                                              */
+
+:root {
+  --stage-ratio: 461 / 165;   /* ≈ 2.794 : 1 ultra-wide banner */
+  --bg: #000000;
+  --amber: #ff8a2b;
+  --amber-hot: #ffd8a8;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.stage {
+  position: relative;
+  aspect-ratio: var(--stage-ratio);
+  width: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
+  background: var(--bg);
+  overflow: hidden;
+  isolation: isolate;
+  container-type: size;
+  container-name: stage;
+}
+
+.stage__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Loader ─────────────────────────────────────────────────────────────── */
+.loader {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(180px, 22%);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  transition: opacity 600ms ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.loader__bar {
+  width: 0%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.72);
+  transform-origin: left center;
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.loader.is-hidden { opacity: 0; }
+
+/* ── HUD ────────────────────────────────────────────────────────────────── */
+.hud {
+  --hud-opacity: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;     /* only the sim panel opts back in */
+  color: #ffffff;
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Everything except the panel fades with the phase transition. */
+.hud__readout {
+  opacity: var(--hud-opacity);
+  transition: opacity 120ms linear;
+}
+
+/* Giant speed readout, right-hand side. */
+.hud__readout {
+  --surge: 0;
+  position: absolute;
+  right: 2.2cqw;
+  bottom: 7cqh;
+  display: flex;
+  align-items: baseline;
+  gap: 1.1cqw;
+  /* Scale and glow lift slightly while accelerating. */
+  transform: scale(calc(1 + var(--surge) * 0.045));
+  transform-origin: 100% 100%;
+  will-change: transform;
+}
+
+.hud__value {
+  font-size: 43cqh;
+  font-weight: 800;
+  line-height: 0.82;
+  letter-spacing: -0.045em;
+  color: #ffffff;
+  text-shadow:
+    0 0 calc(2cqh + var(--surge) * 4cqh) rgba(255, 255, 255, calc(0.25 + var(--surge) * 0.45)),
+    0 0 calc(6cqh + var(--surge) * 14cqh) rgba(255, 138, 43, calc(var(--surge) * 0.75));
+}
+
+.hud__unit {
+  font-size: 8cqh;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.58);
+  padding-bottom: 2cqh;
+}
+
+/* Welcome line on the boot screen. A light serif against the HUD's technical
+   sans, set low in the frame and always lower case. */
+/* Billion Dreams Bold, the brush script the greeting is set in.
+   It is a commercial face, so it is not fetched from anywhere — `local()`
+   picks it up if it is installed on the machine, and the `url()` copies are
+   used once the file is dropped into `fonts/` (see fonts/README.md). Missing
+   entirely, the greeting falls back to the platform UI face below. */
+@font-face {
+  font-family: 'Billion Dreams';
+  src:
+    local('Billion Dreams Bold'),
+    local('BillionDreams-Bold'),
+    local('Billion Dreams'),
+    url('../fonts/BillionDreams_PERSONAL.ttf') format('truetype'),
+    url('../fonts/BillionDreams-Bold.woff2') format('woff2'),
+    url('../fonts/BillionDreams-Bold.otf') format('opentype'),
+    url('../fonts/BillionDreams-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.welcome {
+  position: absolute;
+  /* Top right, tucked under the settings button rather than beside it. */
+  right: 3.2cqw;
+  top: 12cqh;
+  max-width: 52cqw;
+  text-align: right;
+  opacity: 0;
+  pointer-events: none;
+  /* Falls back to the platform's own UI face — San Francisco on Apple
+     hardware, Roboto elsewhere — if the script is not installed. */
+  font-family: 'Billion Dreams', -apple-system, BlinkMacSystemFont,
+    'SF Pro Display', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Brush scripts carry a small x-height for their point size, so this is set
+     larger than the sans fallback would want. */
+  font-size: 11cqh;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow:
+    0 0 3cqh rgba(0, 0, 0, 0.85),
+    0 0 9cqh rgba(120, 170, 255, 0.18);
+}
+
+/* Edge flare for the hardest launches: heat bleeding in from the frame edges.
+   Driven per frame from JS, so no transition here — the timing belongs to the
+   launch, not to the stylesheet. */
+.hud__flare {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 140% at 50% 50%, transparent 38%, rgba(255, 106, 18, 0.30) 88%, rgba(255, 60, 0, 0.5) 100%);
+  mix-blend-mode: screen;
+}
+
+/* ── Simulator / debug panel ────────────────────────────────────────────── */
+/* Opened from the settings menu, so it sits clear of the bottom-left corner
+   the passenger control owns. */
+.panel {
+  position: absolute;
+  left: 3.2cqw;
+  bottom: 22cqh;
+  pointer-events: auto;
+  font-size: 3cqh;
+  transition: opacity 300ms ease;
+}
+
+.panel.is-hidden { opacity: 0; pointer-events: none; }
+
+.panel__body {
+  display: none;
+  position: relative;
+  padding: 2cqh;
+  width: 46cqh;
+  background: rgba(10, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.2cqh;
+  backdrop-filter: blur(10px);
+}
+
+.panel__close {
+  position: absolute;
+  top: 0.6cqh;
+  right: 1cqh;
+  padding: 0 0.6cqh;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.5);
+  font: inherit;
+  font-size: 4.4cqh;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.panel__close:hover { color: #ffffff; }
+
+.panel.is-open .panel__body { display: block; }
+
+.panel__row {
+  display: flex;
+  align-items: center;
+  gap: 1.4cqh;
+}
+
+.panel__slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.6cqh;
+  border-radius: 1cqh;
+  background: linear-gradient(90deg, #5a2a0a, var(--amber));
+  outline: none;
+  cursor: pointer;
+}
+
+.panel__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 2.6cqh;
+  height: 2.6cqh;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 2cqh rgba(255, 138, 43, 0.8);
+  cursor: pointer;
+}
+
+.panel__slider::-moz-range-thumb {
+  width: 2.6cqh;
+  height: 2.6cqh;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 2cqh rgba(255, 138, 43, 0.8);
+  cursor: pointer;
+}
+
+.panel__readout {
+  min-width: 6cqh;
+  text-align: right;
+  font-weight: 700;
+  color: var(--amber-hot);
+}
+
+.panel__presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8cqh;
+  margin-top: 1.6cqh;
+}
+
+.panel__button {
+  padding: 1.1cqh 0.4cqh;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.8cqh;
+  color: rgba(255, 255, 255, 0.82);
+  font: inherit;
+  font-size: 2.7cqh;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.panel__button:hover {
+  background: rgba(255, 138, 43, 0.22);
+  border-color: rgba(255, 138, 43, 0.5);
+  color: #ffffff;
+}
+
+.panel__presets--route {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.panel__button--wide {
+  width: 100%;
+  margin-top: 0.8cqh;
+  letter-spacing: 0.14em;
+}
+
+
+/* ── Spotify now playing ────────────────────────────────────────────────────
+   Top left. Status is carried by icons alone — an animated equaliser while a
+   track runs, a glyph to connect — so the only text is the track's own. */
+.now {
+  position: absolute;
+  left: 3.2cqw;
+  top: 7cqh;
+  display: flex;
+  align-items: center;
+  gap: 2cqh;
+  max-width: 46cqw;
+  padding: 1.6cqh 2.4cqh 1.6cqh 1.6cqh;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 1.4cqh;
+  background: rgba(8, 9, 12, 0.55);
+  opacity: 0;
+  transform: translateY(-0.8cqh);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events: none;
+}
+
+/* Visible as soon as there is either a session or a reason to offer one. */
+.now.is-connected,
+.now.has-track { opacity: 1; transform: none; }
+
+.now__art {
+  flex: none;
+  width: 15cqh;
+  height: 15cqh;
+  border-radius: 0.8cqh;
+  background: rgba(255, 255, 255, 0.05) center / cover no-repeat;
+  box-shadow: 0 0 3cqh rgba(0, 0, 0, 0.7);
+}
+
+.now:not(.has-track) .now__art,
+.now:not(.has-track) .now__body { display: none; }
+
+.now__body { min-width: 0; }
+
+.now__heading {
+  display: flex;
+  align-items: center;
+  gap: 1.2cqh;
+}
+
+.now__title {
+  font-size: 4.4cqh;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now__artist {
+  margin-top: 0.4cqh;
+  font-size: 3.6cqh;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Equaliser: four bars, animated only while audio is actually playing. */
+.now__eq {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5cqh;
+  height: 4cqh;
+}
+
+.now__eq span {
+  width: 0.7cqh;
+  height: 25%;
+  border-radius: 0.4cqh;
+  background: #1ed760;
+  transform-origin: bottom;
+}
+
+.now.is-playing .now__eq span {
+  animation: eq 900ms ease-in-out infinite alternate;
+}
+
+.now.is-playing .now__eq span:nth-child(2) { animation-duration: 640ms; }
+.now.is-playing .now__eq span:nth-child(3) { animation-duration: 1080ms; }
+.now.is-playing .now__eq span:nth-child(4) { animation-duration: 760ms; }
+
+@keyframes eq {
+  from { height: 22%; }
+  to { height: 100%; }
+}
+
+/* People who ask for less motion get flat bars rather than none, so the
+   playing state is still legible. */
+@media (prefers-reduced-motion: reduce) {
+  .now.is-playing .now__eq span { animation: none; height: 60%; }
+}
+
+.now__connect {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 9cqh;
+  height: 9cqh;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #1ed760;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.now__connect svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.now__connect:hover { color: #3ff07d; }
+
+/* Once a session exists the connect glyph has done its job. */
+.now.is-connected .now__connect { display: none; }
+
+/* No session: the card is just the glyph, so it needs no chrome. */
+.now:not(.is-connected) {
+  opacity: 1;
+  transform: none;
+  padding: 0.6cqh;
+  border-color: transparent;
+  background: transparent;
+}
+
+
+/* ── Route simulator overlay ────────────────────────────────────────────────
+   An operator tool, deliberately outside the banner: it sits above the whole
+   window rather than inside the 461:165 stage, which it would otherwise
+   squash into an unusable strip. */
+.mapsim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mapsim.is-open { display: flex; }
+
+.mapsim__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 92vw);
+  height: min(620px, 88vh);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: #0b0c10;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+
+.mapsim__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.mapsim__bar--foot {
+  letter-spacing: normal;
+  font-weight: 500;
+}
+
+.mapsim__status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.mapsim__actions { display: flex; gap: 8px; flex: none; }
+
+.mapsim__map { flex: 1; background: #12141a; }
+
+.mapsim__close,
+.mapsim__button {
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.mapsim__close { padding: 4px 10px; letter-spacing: normal; }
+
+.mapsim__button:hover:not(:disabled),
+.mapsim__close:hover { background: rgba(255, 255, 255, 0.14); }
+
+.mapsim__button:disabled { opacity: 0.4; cursor: default; }
+
+.mapsim__button--go {
+  background: rgba(255, 138, 43, 0.22);
+  border-color: rgba(255, 138, 43, 0.55);
+  color: #ffd9b0;
+}
+
+.mapsim__button--go:hover:not(:disabled) { background: rgba(255, 138, 43, 0.36); }
+
+/* Pin markers. Leaflet positions the box; this only styles it. */
+.mapsim__pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #ff8a2b;
+  color: #1a1000;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+
+/* ── Passenger control ──────────────────────────────────────────────────────
+   Lives on the boot screen, bottom left of the stage, and fades with the
+   welcome line. Sized in container units like the rest of the HUD. */
+.rider {
+  position: absolute;
+  /* The bottom-left corner is its own now that the simulator is reached from
+     the settings menu instead of a toggle sat down here. */
+  left: 3.2cqw;
+  bottom: 7cqh;
+  display: flex;
+  /* Anchored to the bottom, so the list has to open upward — downward it would
+     render past the stage edge and be clipped away entirely. */
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 1cqh;
+  opacity: 0;
+  pointer-events: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: opacity 300ms ease;
+  z-index: 6;
+}
+
+.rider__button {
+  padding: 1.6cqh 2.6cqh;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1.2cqh;
+  background: rgba(10, 12, 16, 0.6);
+  color: rgba(255, 255, 255, 0.82);
+  font: inherit;
+  font-size: 3.4cqh;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.rider__button:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
+
+.rider.has-rider .rider__button {
+  border-color: rgba(127, 196, 255, 0.5);
+  color: #dbeeff;
+}
+
+/* The list only exists once the button has been pressed. */
+.rider__list {
+  display: none;
+  flex-direction: column;
+  gap: 0.6cqh;
+  padding: 1.2cqh;
+  min-width: 34cqh;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.2cqh;
+  background: rgba(8, 9, 12, 0.88);
+  backdrop-filter: blur(10px);
+  max-height: 46cqh;
+  overflow-y: auto;
+}
+
+.rider.is-open .rider__list { display: flex; }
+
+.rider__option {
+  padding: 1.4cqh 2cqh;
+  border: 1px solid transparent;
+  border-radius: 0.9cqh;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 3.2cqh;
+  font-weight: 600;
+  text-align: right;
+  cursor: pointer;
+}
+
+.rider__option:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
+
+.rider__option.is-active {
+  border-color: rgba(127, 196, 255, 0.55);
+  background: rgba(47, 127, 208, 0.28);
+  color: #eaf5ff;
+}
+
+.rider__empty {
+  padding: 1.2cqh 1.6cqh;
+  font-size: 3cqh;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* -- Settings ---------------------------------------------------------------
+   Icon only, top right, above everything else on the stage. The menu hangs
+   below it and holds the things that are not part of setting off. */
+.settings {
+  position: absolute;
+  right: 3.2cqw;
+  top: 5cqh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1cqh;
+  pointer-events: auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  z-index: 7;
+}
+
+.settings__button {
+  display: grid;
+  place-items: center;
+  width: 9cqh;
+  height: 9cqh;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(10, 12, 16, 0.55);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.settings__button svg { width: 5.4cqh; height: 5.4cqh; display: block; }
+
+.settings__button:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
+
+.settings__menu {
+  display: none;
+  flex-direction: column;
+  gap: 0.6cqh;
+  padding: 1.2cqh;
+  min-width: 34cqh;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.2cqh;
+  /* Nearly opaque: it opens straight over the welcome line, which shows
+     through anything lighter and makes both hard to read. */
+  background: rgba(8, 9, 12, 0.96);
+  backdrop-filter: blur(10px);
+  font-size: 3.2cqh;
+}
+
+.settings.is-open .settings__menu { display: flex; }
+
+.settings__item {
+  padding: 1.4cqh 2cqh;
+  border: 1px solid transparent;
+  border-radius: 0.9cqh;
+  background: none;
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings__item:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
+
+/* -- "Hide Miis" tick box ---------------------------------------------------
+   The same control in two places, so it is styled once and positioned by the
+   container it lands in. */
+.settings__row,
+.rider__hide {
+  display: flex;
+  align-items: center;
+  gap: 1.2cqh;
+  padding: 1.4cqh 2cqh;
+  border-radius: 0.9cqh;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings__row:hover,
+.rider__hide:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+
+.settings__row input,
+.rider__hide input {
+  width: 3.2cqh;
+  height: 3.2cqh;
+  margin: 0;
+  accent-color: #7fc4ff;
+  cursor: pointer;
+}
+
+/* On the boot screen it sits on its own above the passenger button, so it
+   needs the same plate the button has to stay readable over the scene. */
+.rider__hide {
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 12, 16, 0.6);
+  font-size: 3.2cqh;
+  backdrop-filter: blur(6px);
+}

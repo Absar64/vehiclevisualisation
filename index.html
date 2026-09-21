@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BMW — Reveal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap"
+/>
+<link rel="stylesheet" href="./src/styles.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <!-- Ultra-wide letterbox stage (461:165 ≈ 2.794:1), centred on pure black. -->
+  <main class="stage" id="stage">
+    <canvas class="stage__canvas" id="canvas"></canvas>
+    <!-- Minimal loading affordance: a single hairline that fills, then fades out. -->
+    <div class="loader" id="loader"><div class="loader__bar" id="loaderBar"></div></div>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
